@@ -19,7 +19,7 @@ A boolean parameter that determines whether to remove the matching diagnostic se
 #>
 
 param (
-    [bool]$DeleteSettings = $false
+    [bool]$DeleteSettings = $true
 )
 
 # Login to Azure
@@ -42,7 +42,7 @@ foreach ($subscription in $subscriptions) {
             try {
                 if ($DeleteSettings) {
                     Write-Output "Removing diagnostic setting: $($setting.Name)"
-                    Remove-AzDiagnosticSetting -Name $setting.Name -ResourceId $setting.id
+                    Remove-AzDiagnosticSetting -Name $setting.Name -ResourceId "/subscriptions/$subscriptionId" -Verbose
                 }
                 else {
                     Write-Output "If Delete Diagnostics Settings True: $($setting.Name) would be removed"
@@ -51,6 +51,9 @@ foreach ($subscription in $subscriptions) {
             catch {
                 Write-Error "Failed to remove diagnostic setting: $($setting.Name). Error: $_"
             }
+        }
+        else {
+            Write-Output "No matching diagnostic settings found"
         }
     }
 
@@ -66,7 +69,7 @@ foreach ($subscription in $subscriptions) {
 
     $response = Invoke-RestMethod -Uri $uri -Method Get -Headers $headers
 
-    # Output the diagnostic settings retrieved via REST API that match "cs-aad-to-eventhub"
+    #Output the diagnostic settings retrieved via REST API that match "cs-aad-to-eventhub"
     foreach ($setting in $response.value) {
         if ($setting.name -like "cs-aad-to-eventhub") {
             if ($DeleteSettings) {
@@ -77,6 +80,9 @@ foreach ($subscription in $subscriptions) {
             else {
                 Write-Output "If Delete Diagnostics Settings True: $($setting.name) would be removed via REST API"
             }
+        }
+        else {
+            Write-Output "No matching diagnostic settings found via REST API"
         }
     }
 }
