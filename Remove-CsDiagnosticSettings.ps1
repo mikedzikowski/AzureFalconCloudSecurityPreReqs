@@ -17,6 +17,7 @@ A boolean parameter that determines whether to remove the matching diagnostic se
 # Example 1: Remove matching diagnostic settings
 .\Remove-FcsDiagnosticSettings.ps1 -DeleteSettings $false
 #>
+
 param (
     [bool]$DeleteSettings = $false
 )
@@ -37,7 +38,7 @@ foreach ($subscription in $subscriptions) {
 
     # Filter and output the diagnostic settings that match the criteria
     foreach ($setting in $diagnosticSettings) {
-        if ($setting.Name -like "cs-monitor-activity-to-eventhub" -or $setting.Name -like "diag-activity-log*") {
+        if ($setting.Name -like "cs-monitor-activity-to-eventhub") {
             try {
                 if ($DeleteSettings) {
                     Write-Output "Removing diagnostic setting: $($setting.Name)"
