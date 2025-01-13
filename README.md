@@ -1,2 +1,2 @@
 # CrowdStrikeScripts
-Simple Repo that will contain scripts used with Falcon Clout Security 
+Simple repo that will contain scripts used with Falcon Cloud Security
