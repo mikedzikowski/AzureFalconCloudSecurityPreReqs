@@ -23,7 +23,7 @@ param (
 )
 
 # Login to Azure
-Connect-AzAccount
+Connect-AzAccount -InformationAction SilentlyContinue
 # Get all subscriptions in the tenant
 $subscriptions = Get-AzSubscription
 
@@ -32,7 +32,7 @@ $null = $diagnosticSettings
 foreach ($subscription in $subscriptions) {
 
     $subscriptionId = $subscription.Id
-
+    Write-Output "Processing subscription: $($subscription.Name)"
     Select-AzSubscription -SubscriptionId $subscriptionId
 
     # Get all Azure Activity Log Diagnostic Settings for the subscription
@@ -90,5 +90,4 @@ foreach ($subscription in $subscriptions) {
     Write-Output "Completed processing subscription: $($subscription.Name)"
 }
 Write-Output "Completed processing all subscriptions"
-
-Disconnect-AzAccount
+Disconnect-AzAccount -InformationAction SilentlyContinue
