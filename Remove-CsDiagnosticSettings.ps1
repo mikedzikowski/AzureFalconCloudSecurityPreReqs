@@ -27,6 +27,8 @@ Connect-AzAccount
 # Get all subscriptions in the tenant
 $subscriptions = Get-AzSubscription
 
+$null = $diagnosticSettings
+
 foreach ($subscription in $subscriptions) {
 
     $subscriptionId = $subscription.Id
@@ -41,8 +43,8 @@ foreach ($subscription in $subscriptions) {
         if ($setting.Name -like "cs-monitor-activity-to-eventhub") {
             try {
                 if ($DeleteSettings) {
-                    Write-Output "Removing diagnostic setting: $($setting.Name)"
-                    Remove-AzDiagnosticSetting -Name $setting.Name -ResourceId "/subscriptions/$subscriptionId" -Verbose
+                    Write-Host "Removing diagnostic setting: $($setting.Name)" -ForegroundColor Blue
+                    Remove-AzDiagnosticSetting -Name $setting.Name -ResourceId "/subscriptions/$subscriptionId"
                 }
                 else {
                     Write-Output "If Delete Diagnostics Settings True: $($setting.Name) would be removed"
@@ -53,7 +55,7 @@ foreach ($subscription in $subscriptions) {
             }
         }
         else {
-            Write-Output "No matching diagnostic settings found"
+            Write-Host "Skipping Diagnostic Setting: $($setting.name)" -ForegroundColor Yellow
         }
     }
 
@@ -73,7 +75,7 @@ foreach ($subscription in $subscriptions) {
     foreach ($setting in $response.value) {
         if ($setting.name -like "cs-aad-to-eventhub") {
             if ($DeleteSettings) {
-                Write-Output "Removing diagnostic setting via REST API: $($setting.name)"
+                Write-Host "Removing diagnostic setting via REST API: $($setting.name)" -ForegroundColor Blue
                 $deleteUri = "https://management.azure.com/providers/microsoft.aadiam/diagnosticSettings/$($setting.name)?api-version=2017-04-01-preview"
                 Invoke-RestMethod -Uri $deleteUri -Method Delete -Headers $headers
             }
@@ -82,7 +84,8 @@ foreach ($subscription in $subscriptions) {
             }
         }
         else {
-            Write-Output "No matching diagnostic settings found via REST API"
+            Write-Host "Skipping Diagnostic Setting: $($setting.name)" -ForegroundColor Yellow
         }
     }
+    Disconnect-AzAccount -Verbose
 }
