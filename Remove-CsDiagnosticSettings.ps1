@@ -87,5 +87,8 @@ foreach ($subscription in $subscriptions) {
             Write-Host "Skipping Diagnostic Setting: $($setting.name)" -ForegroundColor Yellow
         }
     }
-    Disconnect-AzAccount -Verbose
+    Write-Output "Completed processing subscription: $($subscription.Name)"
 }
+Write-Output "Completed processing all subscriptions"
+
+Disconnect-AzAccount
