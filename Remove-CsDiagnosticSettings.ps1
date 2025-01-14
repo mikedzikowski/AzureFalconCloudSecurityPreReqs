@@ -69,23 +69,33 @@ foreach ($subscription in $subscriptions) {
         'Content-Type'  = 'application/json'
     }
 
-    $response = Invoke-RestMethod -Uri $uri -Method Get -Headers $headers
+    try {
+        $response = Invoke-RestMethod -Uri $uri -Method Get -Headers $headers
 
-    #Output the diagnostic settings retrieved via REST API that match "cs-aad-to-eventhub"
-    foreach ($setting in $response.value) {
-        if ($setting.name -like "cs-aad-to-eventhub") {
-            if ($DeleteSettings) {
-                Write-Host "Removing diagnostic setting via REST API: $($setting.name)" -ForegroundColor Blue
-                $deleteUri = "https://management.azure.com/providers/microsoft.aadiam/diagnosticSettings/$($setting.name)?api-version=2017-04-01-preview"
-                Invoke-RestMethod -Uri $deleteUri -Method Delete -Headers $headers
+        # Output the diagnostic settings retrieved via REST API that match "cs-aad-to-eventhub"
+        foreach ($setting in $response.value) {
+            if ($setting.name -like "cs-aad-to-eventhub") {
+                try {
+                    if ($DeleteSettings) {
+                        Write-Host "Removing diagnostic setting via REST API: $($setting.name)" -ForegroundColor Blue
+                        $deleteUri = "https://management.azure.com/providers/microsoft.aadiam/diagnosticSettings/$($setting.name)?api-version=2017-04-01-preview"
+                        Invoke-RestMethod -Uri $deleteUri -Method Delete -Headers $headers
+                    }
+                    else {
+                        Write-Output "If Delete Diagnostics Settings True: $($setting.name) would be removed via REST API"
+                    }
+                }
+                catch {
+                    Write-Error "Failed to remove diagnostic setting via REST API: $($setting.name). Error: $_"
+                }
             }
             else {
-                Write-Output "If Delete Diagnostics Settings True: $($setting.name) would be removed via REST API"
+                Write-Host "Skipping Diagnostic Setting: $($setting.name)" -ForegroundColor Yellow
             }
         }
-        else {
-            Write-Host "Skipping Diagnostic Setting: $($setting.name)" -ForegroundColor Yellow
-        }
+    }
+    catch {
+        Write-Error "Failed to retrieve diagnostic settings via REST API. Error: $_"
     }
     Write-Output "Completed processing subscription: $($subscription.Name)"
 }
