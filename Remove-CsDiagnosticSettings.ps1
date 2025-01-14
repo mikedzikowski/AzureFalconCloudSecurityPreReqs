@@ -1,6 +1,8 @@
 <#
 .SYNOPSIS
-This script logs into Azure, retrieves all subscriptions for a given tenant, and removes Falcon Cloud Security Azure Activity Log Diagnostic Settings based on specified criteria. This script is intended to assist customers who are interested in an automated rollback plan. This tool is provided as-is without any official support. It is recommended to thoroughly test the code in a development or staging environment before deploying it to production. Use at your own risk.
+This script logs into Azure, retrieves all subscriptions for a given tenant, and removes Falcon Cloud Security Azure Activity Log Diagnostic Settings based on specified criteria.
+This script is intended to assist customers who are interested in an automated rollback plan. This tool is provided as-is without any official support.
+It is highly recommended to thoroughly test the code in a development or staging environment before deploying it to production. Use at your own risk.
 
 .DESCRIPTION
 The script performs the following actions:
