@@ -21,7 +21,7 @@ A boolean parameter that determines whether to remove the matching diagnostic se
 #>
 
 param (
-    [bool]$DeleteSettings = $true
+    [bool]$DeleteSettings = $false
 )
 
 # Login to Azure
