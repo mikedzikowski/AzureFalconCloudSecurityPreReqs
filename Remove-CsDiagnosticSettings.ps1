@@ -17,14 +17,14 @@ A boolean parameter that determines whether to remove the matching diagnostic se
 
 .EXAMPLE
 # Example 1: Remove matching diagnostic settings
-.\Remove-FcsDiagnosticSettings.ps1 -DeleteAcivityLogDiagSettings $true -DeleteAadDiagSettings $true
+.\Remove-FcsDiagnosticSettings.ps1 DeleteActivityLogDiagSettings $true -DeleteAadDiagSettings $true
 
 # Example 2: Evaluates which diagnostic settings would be removed
-.\Remove-FcsDiagnosticSettings.ps1 -DeleteAcivityLogDiagSettings $false -DeleteAadDiagSettings $false
+.\Remove-FcsDiagnosticSettings.ps1 DeleteActivityLogDiagSettings $false -DeleteAadDiagSettings $false
 #>
 
 param (
-    [bool]$DeleteAcivityLogDiagSettings = $false
+    [bool]$DeleteActivityLogDiagSettings = $false,
     [bool]$DeleteAadDiagSettings = $false
 )
 
@@ -48,7 +48,7 @@ foreach ($subscription in $subscriptions) {
     foreach ($setting in $diagnosticSettings) {
         if ($setting.Name -like "cs-monitor-activity-to-eventhub") {
             try {
-                if ($DeleteDiagSettings) {
+                if ($DeleteActivityLogDiagSettings) {
                     Write-Host "Removing diagnostic setting: $($setting.Name)" -ForegroundColor Blue
                     Remove-AzDiagnosticSetting -Name $setting.Name -ResourceId "/subscriptions/$subscriptionId"
                 }
