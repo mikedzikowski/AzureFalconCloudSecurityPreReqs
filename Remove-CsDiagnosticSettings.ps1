@@ -49,7 +49,7 @@ foreach ($subscription in $subscriptions) {
     foreach ($setting in $diagnosticSettings) {
         if ($setting.Name -like "cs-monitor-activity-to-eventhub") {
             try {
-                if ($DeleteActivityLogDiagSettings -and $WhatIf) {
+                if ($DeleteActivityLogDiagSettings -and ($WhatIf -eq $false)) {
                     Write-Host "Removing diagnostic setting: $($setting.Name)" -ForegroundColor Blue
                     Remove-AzDiagnosticSetting -Name $setting.Name -ResourceId "/subscriptions/$subscriptionId"
                 }
@@ -83,7 +83,7 @@ foreach ($subscription in $subscriptions) {
         foreach ($setting in $response.value) {
             if ($setting.name -like "cs-aad-to-eventhub") {
                 try {
-                    if ($DeleteAadDiagSettings -and $WhatIf) {
+                    if ($DeleteAadDiagSettings -and ($WhatIf -eq $false)) {
                         Write-Host "Removing diagnostic setting via REST API: $($setting.name)" -ForegroundColor Blue
                         $deleteUri = "https://management.azure.com/providers/microsoft.aadiam/diagnosticSettings/$($setting.name)?api-version=2017-04-01-preview"
                         Invoke-RestMethod -Uri $deleteUri -Method Delete -Headers $headers
