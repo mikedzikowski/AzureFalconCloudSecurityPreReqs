@@ -17,15 +17,16 @@ A boolean parameter that determines whether to remove the matching diagnostic se
 
 .EXAMPLE
 # Example 1: Remove matching diagnostic settings
-.\Remove-FcsDiagnosticSettings.ps1 -DeleteActivityLogDiagSettings $true -DeleteAadDiagSettings $true
+.\Remove-FcsDiagnosticSettings.ps1 -DeleteActivityLogDiagSettings $true -DeleteAadDiagSettings $true -Whatif $false
 
 # Example 2: Evaluates which diagnostic settings would be removed
-.\Remove-FcsDiagnosticSettings.ps1 -DeleteActivityLogDiagSettings $false -DeleteAadDiagSettings $false
+.\Remove-FcsDiagnosticSettings.ps1 -DeleteActivityLogDiagSettings $false -DeleteAadDiagSettings $false -Whatif $true
 #>
 
 param (
     [bool]$DeleteActivityLogDiagSettings = $false,
-    [bool]$DeleteAadDiagSettings = $false
+    [bool]$DeleteAadDiagSettings = $false,
+    [bool]$WhatIf = $true
 )
 
 # Login to Azure
@@ -48,7 +49,7 @@ foreach ($subscription in $subscriptions) {
     foreach ($setting in $diagnosticSettings) {
         if ($setting.Name -like "cs-monitor-activity-to-eventhub") {
             try {
-                if ($DeleteActivityLogDiagSettings) {
+                if ($DeleteActivityLogDiagSettings -and $WhatIf) {
                     Write-Host "Removing diagnostic setting: $($setting.Name)" -ForegroundColor Blue
                     Remove-AzDiagnosticSetting -Name $setting.Name -ResourceId "/subscriptions/$subscriptionId"
                 }
@@ -82,7 +83,7 @@ foreach ($subscription in $subscriptions) {
         foreach ($setting in $response.value) {
             if ($setting.name -like "cs-aad-to-eventhub") {
                 try {
-                    if ($DeleteAadDiagSettings) {
+                    if ($DeleteAadDiagSettings -and $WhatIf) {
                         Write-Host "Removing diagnostic setting via REST API: $($setting.name)" -ForegroundColor Blue
                         $deleteUri = "https://management.azure.com/providers/microsoft.aadiam/diagnosticSettings/$($setting.name)?api-version=2017-04-01-preview"
                         Invoke-RestMethod -Uri $deleteUri -Method Delete -Headers $headers
