@@ -17,10 +17,10 @@ A boolean parameter that determines whether to remove the matching diagnostic se
 
 .EXAMPLE
 # Example 1: Remove matching diagnostic settings
-.\Remove-FcsDiagnosticSettings.ps1 DeleteActivityLogDiagSettings $true -DeleteAadDiagSettings $true
+.\Remove-FcsDiagnosticSettings.ps1 -DeleteActivityLogDiagSettings $true -DeleteAadDiagSettings $true
 
 # Example 2: Evaluates which diagnostic settings would be removed
-.\Remove-FcsDiagnosticSettings.ps1 DeleteActivityLogDiagSettings $false -DeleteAadDiagSettings $false
+.\Remove-FcsDiagnosticSettings.ps1 -DeleteActivityLogDiagSettings $false -DeleteAadDiagSettings $false
 #>
 
 param (
