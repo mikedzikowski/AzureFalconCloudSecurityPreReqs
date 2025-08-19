@@ -36,19 +36,17 @@ Write-Host "Scope: $tenantRootId"
 
 # Owner Check at Tenant Root
 Write-Host "`nOwner Check:"
-$roleAssignments = Get-AzRoleAssignment -SignInName $currentUser -Scope $tenantRootId -ErrorAction SilentlyContinue
-$isOwner = $false
-if ($roleAssignments) {
-    $isOwner = $roleAssignments | Where-Object { $_.RoleDefinitionName -eq "Owner" } | Select-Object -First 1
-    if ($isOwner) {
-        Write-Host "  " -NoNewline
-        Write-Host $checkMark -ForegroundColor Green -NoNewline
-        Write-Host " Is Owner: True"
-    } else {
-        Write-Host "  " -NoNewline
-        Write-Host $xMark -ForegroundColor Red -NoNewline
-        Write-Host " Is Owner: False"
-    }
+$user = Get-AzAdUser -SignedIn
+$tenantOwnerAssignment = Get-AzRoleAssignment -Scope '/' -RoleDefinitionName 'Owner' -ObjectId $user.Id -ErrorAction SilentlyContinue
+
+if ($tenantOwnerAssignment) {
+    Write-Host "  " -NoNewline
+    Write-Host $checkMark -ForegroundColor Green -NoNewline
+    Write-Host " Is Owner: True"
+} else {
+    Write-Host "  " -NoNewline
+    Write-Host $xMark -ForegroundColor Red -NoNewline
+    Write-Host " Is Owner: False"
 }
 
 # Policy Checks at Tenant Root
@@ -176,7 +174,7 @@ foreach ($subscription in $subscriptions) {
                         break
                     }
                 }
-                
+
                 if ($isPolicyEnabled) {
                     # Red X for any policy when True
                     Write-Host "    " -NoNewline
