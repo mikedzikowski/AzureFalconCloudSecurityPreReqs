@@ -21,9 +21,9 @@ Red X (✗) conditions:
 - All Policies: True
 #>
 
-# Detect if running in Cloud Shell
+# Detect if running in Cloud Shell - more reliable method
 $isCloudShell = $false
-if ($env:AZUREPS_HOST_ENVIRONMENT -or $env:ACC_CLOUD -eq "AzureCloud") {
+if ($env:ACC_CLOUD -eq "AzureCloud" -or $env:AZUREPS_HOST_ENVIRONMENT -or (Test-Path -Path "/home/*/clouddrive")) {
     $isCloudShell = $true
     Write-Host "Running in Azure Cloud Shell environment" -ForegroundColor Yellow
 }
@@ -89,28 +89,13 @@ $policyIdsToCheck = @(
 Write-Host "`n=== Checking Tenant Root Management Group ===" -ForegroundColor Cyan
 Write-Host "Scope: $tenantRootId"
 
-# Owner Check at Tenant Root
+# Owner Check at Tenant Root - Skip in Cloud Shell
 Write-Host "`nOwner Check:"
 if ($isCloudShell) {
-    # In Cloud Shell, we'll check if the user can perform an Owner action
-    # instead of directly checking the role assignment
-    try {
-        # Try to get a management group that requires Owner permissions
-        $canManageRoot = Get-AzManagementGroup -GroupId $tenantDetails.Id -ErrorAction SilentlyContinue
-        if ($canManageRoot) {
-            Write-Host "  " -NoNewline
-            Write-Host $checkMark -ForegroundColor Green -NoNewline
-            Write-Host " Is Owner: True (based on permissions test)"
-        } else {
-            Write-Host "  " -NoNewline
-            Write-Host $xMark -ForegroundColor Red -NoNewline
-            Write-Host " Is Owner: False (based on permissions test)"
-        }
-    } catch {
-        Write-Host "  " -NoNewline
-        Write-Host $xMark -ForegroundColor Red -NoNewline
-        Write-Host " Is Owner: False (based on permissions test)"
-    }
+    Write-Host "  " -NoNewline
+    Write-Host "?" -ForegroundColor Yellow -NoNewline
+    Write-Host " Owner status at tenant root cannot be determined in Cloud Shell"
+    Write-Host "      To verify, please check in Azure Portal: https://portal.azure.com/#view/Microsoft_Azure_ManagementGroups/ManagementGroupBrowseBlade"
 } else {
     # Regular check for non-Cloud Shell environments
     $tenantOwnerAssignment = Get-AzRoleAssignment -Scope '/' -RoleDefinitionName 'Owner' -SignInName $currentUser -ErrorAction SilentlyContinue
@@ -125,10 +110,9 @@ if ($isCloudShell) {
     }
 }
 
-# Global Administrator Check
+# Global Administrator Check - Skip in Cloud Shell
 Write-Host "`nGlobal Administrator Check:"
 if ($isCloudShell) {
-    # In Cloud Shell, we can't reliably check for Global Admin
     Write-Host "  " -NoNewline
     Write-Host "?" -ForegroundColor Yellow -NoNewline
     Write-Host " Global Administrator status cannot be determined in Cloud Shell"
@@ -172,30 +156,36 @@ if ($isCloudShell) {
     }
 }
 
-# User Access Administrator Check
+# User Access Administrator Check - Skip in Cloud Shell
 Write-Host "`nUser Access Administrator Check:"
-try {
-    # Check if the user has User Access Administrator role at tenant root
-    # This should work in both environments
-    $userAccessAdminRole = Get-AzRoleAssignment -Scope '/' -RoleDefinitionName 'User Access Administrator' -SignInName $currentUser -ErrorAction SilentlyContinue
-    $hasUserAccessAdmin = $false
-    
-    if ($userAccessAdminRole) {
-        $hasUserAccessAdmin = $true
-        Write-Host "  " -NoNewline
-        Write-Host $checkMark -ForegroundColor Green -NoNewline
-        Write-Host " Is User Access Administrator: True"
-    } else {
+if ($isCloudShell) {
+    Write-Host "  " -NoNewline
+    Write-Host "?" -ForegroundColor Yellow -NoNewline
+    Write-Host " User Access Administrator status cannot be determined in Cloud Shell"
+    Write-Host "      To verify, please check in Azure Portal: https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/Properties"
+} else {
+    try {
+        # Check if the user has User Access Administrator role at tenant root
+        $userAccessAdminRole = Get-AzRoleAssignment -Scope '/' -RoleDefinitionName 'User Access Administrator' -SignInName $currentUser -ErrorAction SilentlyContinue
+        $hasUserAccessAdmin = $false
+        
+        if ($userAccessAdminRole) {
+            $hasUserAccessAdmin = $true
+            Write-Host "  " -NoNewline
+            Write-Host $checkMark -ForegroundColor Green -NoNewline
+            Write-Host " Is User Access Administrator: True"
+        } else {
+            Write-Host "  " -NoNewline
+            Write-Host $xMark -ForegroundColor Red -NoNewline
+            Write-Host " Is User Access Administrator: False"
+            Write-Host "      To enable, visit: https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/Properties"
+        }
+    } catch {
         Write-Host "  " -NoNewline
         Write-Host $xMark -ForegroundColor Red -NoNewline
-        Write-Host " Is User Access Administrator: False"
+        Write-Host " Is User Access Administrator: Error checking ($($_.Exception.Message))"
         Write-Host "      To enable, visit: https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/Properties"
     }
-} catch {
-    Write-Host "  " -NoNewline
-    Write-Host $xMark -ForegroundColor Red -NoNewline
-    Write-Host " Is User Access Administrator: Error checking ($($_.Exception.Message))"
-    Write-Host "      To enable, visit: https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/Properties"
 }
 
 # Policy Checks at Tenant Root
@@ -263,47 +253,13 @@ foreach ($subscription in $subscriptions) {
         }
     }
 
-    # Owner Check
+    # Owner Check - Skip in Cloud Shell
     Write-Host "`nOwner Check:"
     if ($isCloudShell) {
-        # In Cloud Shell, check if the user can perform an Owner action
-        try {
-            # Try to get a resource group (requires Owner or Contributor)
-            $canManageSubscription = Get-AzResourceGroup -ErrorAction SilentlyContinue
-            if ($canManageSubscription) {
-                # Additional check to distinguish between Owner and Contributor
-                # Try to assign a role (requires Owner)
-                $testGuid = [guid]::NewGuid().ToString()
-                $canAssignRoles = $false
-                try {
-                    # Just check if the command would work, don't actually execute it
-                    $roleDefId = (Get-AzRoleDefinition -Name "Reader").Id
-                    $testCommand = "New-AzRoleAssignment -ObjectId $testGuid -RoleDefinitionId $roleDefId -Scope /subscriptions/$($subscription.Id) -WhatIf"
-                    Invoke-Expression $testCommand -ErrorAction Stop
-                    $canAssignRoles = $true
-                } catch {
-                    # If this fails, user likely doesn't have Owner permissions
-                }
-                
-                if ($canAssignRoles) {
-                    Write-Host "  " -NoNewline
-                    Write-Host $checkMark -ForegroundColor Green -NoNewline
-                    Write-Host " Is Owner: True (based on permissions test)"
-                } else {
-                    Write-Host "  " -NoNewline
-                    Write-Host $xMark -ForegroundColor Red -NoNewline
-                    Write-Host " Is Owner: False (based on permissions test)"
-                }
-            } else {
-                Write-Host "  " -NoNewline
-                Write-Host $xMark -ForegroundColor Red -NoNewline
-                Write-Host " Is Owner: False (based on permissions test)"
-            }
-        } catch {
-            Write-Host "  " -NoNewline
-            Write-Host $xMark -ForegroundColor Red -NoNewline
-            Write-Host " Is Owner: False (based on permissions test)"
-        }
+        Write-Host "  " -NoNewline
+        Write-Host "?" -ForegroundColor Yellow -NoNewline
+        Write-Host " Owner status cannot be determined in Cloud Shell"
+        Write-Host "      To verify, please check in Azure Portal: https://portal.azure.com/#view/Microsoft_Azure_Billing/SubscriptionsBlade"
     } else {
         # Regular check for non-Cloud Shell environments
         $roleAssignments = Get-AzRoleAssignment -SignInName $currentUser -Scope "/subscriptions/$($subscription.Id)" -ErrorAction SilentlyContinue
