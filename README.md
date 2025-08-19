@@ -15,17 +15,18 @@ This PowerShell script helps customers validate their Azure environment meets th
   - Resource type restrictions
 
 ## Visual Indicators
-- <span style="color:green">✓</span> (Green Checkmark): Ready for onboarding
-  - Owner: True (required for onboarding)
-  - Provider: Registered (required for functionality)
-  - Diagnostic Settings: Count < 5 (optimal configuration)
-  - Policies: False (no conflicting policies)
 
-- <span style="color:red">✗</span> (Red X): Needs attention
-  - Owner: False (insufficient permissions)
-  - Provider: Not Registered (missing requirements)
-  - Diagnostic Settings: Count >= 5 (potential issues)
-  - Policies: True (potential conflicts)
+### 🟢 Ready for onboarding
+- Owner: True (required for onboarding)
+- Provider: Registered (required for functionality)
+- Diagnostic Settings: Count < 5 (optimal configuration)
+- Policies: False (no conflicting policies)
+
+### 🔴 Needs attention
+- Owner: False (insufficient permissions)
+- Provider: Not Registered (missing requirements)
+- Diagnostic Settings: Count >= 5 (potential issues)
+- Policies: True (potential conflicts)
 
 ## Prerequisites
 - Azure PowerShell module installed
@@ -44,21 +45,21 @@ This PowerShell script helps customers validate their Azure environment meets th
 Scope: /subscriptions/xxxx-xxxx-xxxx-xxxx
 
 Provider Checks:
-  <span style="color:green">✓</span> Provider Microsoft.Insights is registered
-  <span style="color:green">✓</span> Provider Microsoft.Management is registered
+  ✓ Provider Microsoft.Insights is registered
+  ✓ Provider Microsoft.Management is registered
 
 Owner Check:
-  <span style="color:green">✓</span> Is Owner: True
+  ✓ Is Owner: True
 
 Diagnostic Settings Check:
-  <span style="color:green">✓</span> Activity Logs Exported: 2
+  ✓ Activity Logs Exported: 2
 
 Policy Checks:
-    <span style="color:green">✓</span> Require a tag and its value on resources: False
-    <span style="color:green">✓</span> Allowed locations: False
+    ✓ Require a tag and its value on resources: False
+    ✓ Allowed locations: False
 ```
 
 ## Note
-This script is designed to help identify any potential blockers or configuration issues that need to be addressed before proceeding with Falcon Cloud Security onboarding. If you see any <span style="color:red">✗</span> indicators, please review the requirements documentation or contact CrowdStrike Support for assistance.
+This script is designed to help identify any potential blockers or configuration issues that need to be addressed before proceeding with Falcon Cloud Security onboarding. If you see any 🔴 indicators, please review the requirements documentation or contact CrowdStrike Support for assistance.
 
-Note: If viewing this README in a plain text editor, the colored symbols may not appear. When running the script, you will see colored indicators in your PowerShell console.
+Note: The script will show colored checkmarks (✓) and X marks (✗) in your PowerShell console when running.
