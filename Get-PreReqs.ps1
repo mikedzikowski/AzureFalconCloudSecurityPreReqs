@@ -22,10 +22,43 @@ Red X (✗) conditions:
 #>
 
 # Suppress the output and warnings from Connect-AzAccount
-Connect-AzAccount -WarningAction SilentlyContinue | Out-Null
+try {
+    # Check if already connected
+    $context = Get-AzContext -ErrorAction SilentlyContinue
+    if (-not $context) {
+        Connect-AzAccount -WarningAction SilentlyContinue | Out-Null
+    }
+} catch {
+    Write-Host "Error connecting to Azure: $($_.Exception.Message)" -ForegroundColor Red
+    exit
+}
 
 # Get the current user context
 $currentUser = (Get-AzContext).Account.Id
+$currentUserObjectId = $null
+
+# Try to get the current user's object ID
+try {
+    # First try using Get-AzADUser with UPN
+    $currentUserDetails = Get-AzADUser -UserPrincipalName $currentUser -ErrorAction SilentlyContinue
+    if ($currentUserDetails) {
+        $currentUserObjectId = $currentUserDetails.Id
+    } else {
+        # If that fails, try to get it from the access token
+        $token = (Get-AzAccessToken -ResourceUrl "https://graph.microsoft.com" -ErrorAction SilentlyContinue).Token
+        if ($token) {
+            # Parse the JWT token to get the object ID
+            $tokenPayload = $token.Split(".")[1].Replace('-', '+').Replace('_', '/')
+            # Add padding if needed
+            while ($tokenPayload.Length % 4) { $tokenPayload += "=" }
+            $tokenJson = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($tokenPayload))
+            $tokenData = $tokenJson | ConvertFrom-Json
+            $currentUserObjectId = $tokenData.oid
+        }
+    }
+} catch {
+    Write-Host "Warning: Could not determine user object ID. Some checks may be limited." -ForegroundColor Yellow
+}
 
 # Get all subscriptions
 $subscriptions = Get-AzSubscription
@@ -75,8 +108,14 @@ Write-Host "Scope: $tenantRootId"
 
 # Owner Check at Tenant Root
 Write-Host "`nOwner Check:"
-$user = Get-AzAdUser -SignedIn
-$tenantOwnerAssignment = Get-AzRoleAssignment -Scope '/' -RoleDefinitionName 'Owner' -ObjectId $user.Id -ErrorAction SilentlyContinue
+$tenantOwnerAssignment = $null
+
+if ($currentUserObjectId) {
+    $tenantOwnerAssignment = Get-AzRoleAssignment -Scope '/' -RoleDefinitionName 'Owner' -ObjectId $currentUserObjectId -ErrorAction SilentlyContinue
+} else {
+    # Fallback to checking by SignInName
+    $tenantOwnerAssignment = Get-AzRoleAssignment -Scope '/' -RoleDefinitionName 'Owner' -SignInName $currentUser -ErrorAction SilentlyContinue
+}
 
 if ($tenantOwnerAssignment) {
     Write-Host "  " -NoNewline
@@ -131,8 +170,15 @@ try {
 Write-Host "`nUser Access Administrator Check:"
 try {
     # Check if the user has User Access Administrator role at tenant root
-    $userAccessAdminRole = Get-AzRoleAssignment -Scope '/' -RoleDefinitionName 'User Access Administrator' -ObjectId $user.Id -ErrorAction SilentlyContinue
+    $userAccessAdminRole = $null
     $hasUserAccessAdmin = $false
+    
+    if ($currentUserObjectId) {
+        $userAccessAdminRole = Get-AzRoleAssignment -Scope '/' -RoleDefinitionName 'User Access Administrator' -ObjectId $currentUserObjectId -ErrorAction SilentlyContinue
+    } else {
+        # Fallback to checking by SignInName
+        $userAccessAdminRole = Get-AzRoleAssignment -Scope '/' -RoleDefinitionName 'User Access Administrator' -SignInName $currentUser -ErrorAction SilentlyContinue
+    }
     
     if ($userAccessAdminRole) {
         $hasUserAccessAdmin = $true
@@ -230,8 +276,13 @@ foreach ($subscription in $subscriptions) {
 
     # Owner Check
     Write-Host "`nOwner Check:"
-    $roleAssignments = Get-AzRoleAssignment -SignInName $currentUser -Scope "/subscriptions/$($subscription.Id)" -ErrorAction SilentlyContinue
     $isOwner = $false
+    
+    if ($currentUserObjectId) {
+        $roleAssignments = Get-AzRoleAssignment -ObjectId $currentUserObjectId -Scope "/subscriptions/$($subscription.Id)" -ErrorAction SilentlyContinue
+    } else {
+        $roleAssignments = Get-AzRoleAssignment -SignInName $currentUser -Scope "/subscriptions/$($subscription.Id)" -ErrorAction SilentlyContinue
+    }
 
     if ($roleAssignments) {
         $isOwner = $roleAssignments | Where-Object { $_.RoleDefinitionName -eq "Owner" } | Select-Object -First 1
@@ -244,6 +295,10 @@ foreach ($subscription in $subscriptions) {
             Write-Host $xMark -ForegroundColor Red -NoNewline
             Write-Host " Is Owner: False"
         }
+    } else {
+        Write-Host "  " -NoNewline
+        Write-Host $xMark -ForegroundColor Red -NoNewline
+        Write-Host " Is Owner: False"
     }
 
     # Diagnostic Settings Check
