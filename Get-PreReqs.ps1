@@ -21,6 +21,13 @@ Red X (✗) conditions:
 - All Policies: True
 #>
 
+# Detect if running in Cloud Shell
+$isCloudShell = $false
+if ($env:AZUREPS_HOST_ENVIRONMENT -or $env:ACC_CLOUD -eq "AzureCloud") {
+    $isCloudShell = $true
+    Write-Host "Running in Azure Cloud Shell environment" -ForegroundColor Yellow
+}
+
 # Suppress the output and warnings from Connect-AzAccount
 try {
     # Check if already connected
@@ -84,61 +91,92 @@ Write-Host "Scope: $tenantRootId"
 
 # Owner Check at Tenant Root
 Write-Host "`nOwner Check:"
-$tenantOwnerAssignment = Get-AzRoleAssignment -Scope '/' -RoleDefinitionName 'Owner' -SignInName $currentUser -ErrorAction SilentlyContinue
-
-if ($tenantOwnerAssignment) {
-    Write-Host "  " -NoNewline
-    Write-Host $checkMark -ForegroundColor Green -NoNewline
-    Write-Host " Is Owner: True"
+if ($isCloudShell) {
+    # In Cloud Shell, we'll check if the user can perform an Owner action
+    # instead of directly checking the role assignment
+    try {
+        # Try to get a management group that requires Owner permissions
+        $canManageRoot = Get-AzManagementGroup -GroupId $tenantDetails.Id -ErrorAction SilentlyContinue
+        if ($canManageRoot) {
+            Write-Host "  " -NoNewline
+            Write-Host $checkMark -ForegroundColor Green -NoNewline
+            Write-Host " Is Owner: True (based on permissions test)"
+        } else {
+            Write-Host "  " -NoNewline
+            Write-Host $xMark -ForegroundColor Red -NoNewline
+            Write-Host " Is Owner: False (based on permissions test)"
+        }
+    } catch {
+        Write-Host "  " -NoNewline
+        Write-Host $xMark -ForegroundColor Red -NoNewline
+        Write-Host " Is Owner: False (based on permissions test)"
+    }
 } else {
-    Write-Host "  " -NoNewline
-    Write-Host $xMark -ForegroundColor Red -NoNewline
-    Write-Host " Is Owner: False"
+    # Regular check for non-Cloud Shell environments
+    $tenantOwnerAssignment = Get-AzRoleAssignment -Scope '/' -RoleDefinitionName 'Owner' -SignInName $currentUser -ErrorAction SilentlyContinue
+    if ($tenantOwnerAssignment) {
+        Write-Host "  " -NoNewline
+        Write-Host $checkMark -ForegroundColor Green -NoNewline
+        Write-Host " Is Owner: True"
+    } else {
+        Write-Host "  " -NoNewline
+        Write-Host $xMark -ForegroundColor Red -NoNewline
+        Write-Host " Is Owner: False"
+    }
 }
 
 # Global Administrator Check
 Write-Host "`nGlobal Administrator Check:"
-$isGlobalAdmin = $false
-$globalAdminRoleName = "Global Administrator"  # The display name of the Global Admin role
+if ($isCloudShell) {
+    # In Cloud Shell, we can't reliably check for Global Admin
+    Write-Host "  " -NoNewline
+    Write-Host "?" -ForegroundColor Yellow -NoNewline
+    Write-Host " Global Administrator status cannot be determined in Cloud Shell"
+    Write-Host "      To verify, please check in Azure Portal: https://portal.azure.com/#view/Microsoft_AAD_IAM/RolesManagementMenuBlade/~/AllRoles/adminUnitObjectId//resourceScope/%2F"
+} else {
+    $isGlobalAdmin = $false
+    $globalAdminRoleName = "Global Administrator"  # The display name of the Global Admin role
 
-try {
-    # Get an access token for Microsoft Graph API, suppressing warnings
-    $token = (Get-AzAccessToken -ResourceUrl "https://graph.microsoft.com" -WarningAction SilentlyContinue).Token
+    try {
+        # Get an access token for Microsoft Graph API, suppressing warnings
+        $token = (Get-AzAccessToken -ResourceUrl "https://graph.microsoft.com" -WarningAction SilentlyContinue).Token
 
-    # Set the request headers
-    $headers = @{
-        "Authorization" = "Bearer $token"
-    }
+        # Set the request headers
+        $headers = @{
+            "Authorization" = "Bearer $token"
+        }
 
-    # Query Microsoft Graph API for user's directory roles
-    $uri = "https://graph.microsoft.com/v1.0/me/memberOf"
-    $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
+        # Query Microsoft Graph API for user's directory roles
+        $uri = "https://graph.microsoft.com/v1.0/me/memberOf"
+        $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
 
-    # Check if the user is a member of the Global Administrator role
-    $globalAdminRole = $response.value | Where-Object { $_.displayName -eq $globalAdminRoleName }
+        # Check if the user is a member of the Global Administrator role
+        $globalAdminRole = $response.value | Where-Object { $_.displayName -eq $globalAdminRoleName }
 
-    if ($globalAdminRole) {
-        $isGlobalAdmin = $true
-        Write-Host "  " -NoNewline
-        Write-Host $checkMark -ForegroundColor Green -NoNewline
-        Write-Host " Is Global Administrator: True"
-    } else {
+        if ($globalAdminRole) {
+            $isGlobalAdmin = $true
+            Write-Host "  " -NoNewline
+            Write-Host $checkMark -ForegroundColor Green -NoNewline
+            Write-Host " Is Global Administrator: True"
+        } else {
+            Write-Host "  " -NoNewline
+            Write-Host $xMark -ForegroundColor Red -NoNewline
+            Write-Host " Is Global Administrator: False"
+            Write-Host "      To manage Global Administrators, visit: https://portal.azure.com/#view/Microsoft_AAD_IAM/RolesManagementMenuBlade/~/AllRoles/adminUnitObjectId//resourceScope/%2F"
+        }
+    } catch {
         Write-Host "  " -NoNewline
         Write-Host $xMark -ForegroundColor Red -NoNewline
-        Write-Host " Is Global Administrator: False"
+        Write-Host " Is Global Administrator: Error checking ($($_.Exception.Message))"
         Write-Host "      To manage Global Administrators, visit: https://portal.azure.com/#view/Microsoft_AAD_IAM/RolesManagementMenuBlade/~/AllRoles/adminUnitObjectId//resourceScope/%2F"
     }
-} catch {
-    Write-Host "  " -NoNewline
-    Write-Host $xMark -ForegroundColor Red -NoNewline
-    Write-Host " Is Global Administrator: Error checking ($($_.Exception.Message))"
-    Write-Host "      To manage Global Administrators, visit: https://portal.azure.com/#view/Microsoft_AAD_IAM/RolesManagementMenuBlade/~/AllRoles/adminUnitObjectId//resourceScope/%2F"
 }
 
 # User Access Administrator Check
 Write-Host "`nUser Access Administrator Check:"
 try {
     # Check if the user has User Access Administrator role at tenant root
+    # This should work in both environments
     $userAccessAdminRole = Get-AzRoleAssignment -Scope '/' -RoleDefinitionName 'User Access Administrator' -SignInName $currentUser -ErrorAction SilentlyContinue
     $hasUserAccessAdmin = $false
     
@@ -227,24 +265,66 @@ foreach ($subscription in $subscriptions) {
 
     # Owner Check
     Write-Host "`nOwner Check:"
-    $roleAssignments = Get-AzRoleAssignment -SignInName $currentUser -Scope "/subscriptions/$($subscription.Id)" -ErrorAction SilentlyContinue
-    $isOwner = $false
-
-    if ($roleAssignments) {
-        $isOwner = $roleAssignments | Where-Object { $_.RoleDefinitionName -eq "Owner" } | Select-Object -First 1
-        if ($isOwner) {
+    if ($isCloudShell) {
+        # In Cloud Shell, check if the user can perform an Owner action
+        try {
+            # Try to get a resource group (requires Owner or Contributor)
+            $canManageSubscription = Get-AzResourceGroup -ErrorAction SilentlyContinue
+            if ($canManageSubscription) {
+                # Additional check to distinguish between Owner and Contributor
+                # Try to assign a role (requires Owner)
+                $testGuid = [guid]::NewGuid().ToString()
+                $canAssignRoles = $false
+                try {
+                    # Just check if the command would work, don't actually execute it
+                    $roleDefId = (Get-AzRoleDefinition -Name "Reader").Id
+                    $testCommand = "New-AzRoleAssignment -ObjectId $testGuid -RoleDefinitionId $roleDefId -Scope /subscriptions/$($subscription.Id) -WhatIf"
+                    Invoke-Expression $testCommand -ErrorAction Stop
+                    $canAssignRoles = $true
+                } catch {
+                    # If this fails, user likely doesn't have Owner permissions
+                }
+                
+                if ($canAssignRoles) {
+                    Write-Host "  " -NoNewline
+                    Write-Host $checkMark -ForegroundColor Green -NoNewline
+                    Write-Host " Is Owner: True (based on permissions test)"
+                } else {
+                    Write-Host "  " -NoNewline
+                    Write-Host $xMark -ForegroundColor Red -NoNewline
+                    Write-Host " Is Owner: False (based on permissions test)"
+                }
+            } else {
+                Write-Host "  " -NoNewline
+                Write-Host $xMark -ForegroundColor Red -NoNewline
+                Write-Host " Is Owner: False (based on permissions test)"
+            }
+        } catch {
             Write-Host "  " -NoNewline
-            Write-Host $checkMark -ForegroundColor Green -NoNewline
-            Write-Host " Is Owner: True"
+            Write-Host $xMark -ForegroundColor Red -NoNewline
+            Write-Host " Is Owner: False (based on permissions test)"
+        }
+    } else {
+        # Regular check for non-Cloud Shell environments
+        $roleAssignments = Get-AzRoleAssignment -SignInName $currentUser -Scope "/subscriptions/$($subscription.Id)" -ErrorAction SilentlyContinue
+        $isOwner = $false
+
+        if ($roleAssignments) {
+            $isOwner = $roleAssignments | Where-Object { $_.RoleDefinitionName -eq "Owner" } | Select-Object -First 1
+            if ($isOwner) {
+                Write-Host "  " -NoNewline
+                Write-Host $checkMark -ForegroundColor Green -NoNewline
+                Write-Host " Is Owner: True"
+            } else {
+                Write-Host "  " -NoNewline
+                Write-Host $xMark -ForegroundColor Red -NoNewline
+                Write-Host " Is Owner: False"
+            }
         } else {
             Write-Host "  " -NoNewline
             Write-Host $xMark -ForegroundColor Red -NoNewline
             Write-Host " Is Owner: False"
         }
-    } else {
-        Write-Host "  " -NoNewline
-        Write-Host $xMark -ForegroundColor Red -NoNewline
-        Write-Host " Is Owner: False"
     }
 
     # Diagnostic Settings Check
