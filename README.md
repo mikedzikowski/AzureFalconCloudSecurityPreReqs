@@ -15,13 +15,13 @@ This PowerShell script helps customers validate their Azure environment meets th
   - Resource type restrictions
 
 ## Visual Indicators
-- ✓ (Green Checkmark): Ready for onboarding
+- <span style="color:green">✓</span> (Green Checkmark): Ready for onboarding
   - Owner: True (required for onboarding)
   - Provider: Registered (required for functionality)
   - Diagnostic Settings: Count < 5 (optimal configuration)
   - Policies: False (no conflicting policies)
 
-- ✗ (Red X): Needs attention
+- <span style="color:red">✗</span> (Red X): Needs attention
   - Owner: False (insufficient permissions)
   - Provider: Not Registered (missing requirements)
   - Diagnostic Settings: Count >= 5 (potential issues)
@@ -44,19 +44,21 @@ This PowerShell script helps customers validate their Azure environment meets th
 Scope: /subscriptions/xxxx-xxxx-xxxx-xxxx
 
 Provider Checks:
-  ✓ Provider Microsoft.Insights is registered
-  ✓ Provider Microsoft.Management is registered
+  <span style="color:green">✓</span> Provider Microsoft.Insights is registered
+  <span style="color:green">✓</span> Provider Microsoft.Management is registered
 
 Owner Check:
-  ✓ Is Owner: True
+  <span style="color:green">✓</span> Is Owner: True
 
 Diagnostic Settings Check:
-  ✓ Activity Logs Exported: 2
+  <span style="color:green">✓</span> Activity Logs Exported: 2
 
 Policy Checks:
-    ✓ Require a tag and its value on resources: False
-    ✓ Allowed locations: False
+    <span style="color:green">✓</span> Require a tag and its value on resources: False
+    <span style="color:green">✓</span> Allowed locations: False
 ```
 
 ## Note
-This script is designed to help identify any potential blockers or configuration issues that need to be addressed before proceeding with Falcon Cloud Security onboarding. If you see any red X indicators, please review the requirements documentation or contact CrowdStrike Support for assistance.
+This script is designed to help identify any potential blockers or configuration issues that need to be addressed before proceeding with Falcon Cloud Security onboarding. If you see any <span style="color:red">✗</span> indicators, please review the requirements documentation or contact CrowdStrike Support for assistance.
+
+Note: If viewing this README in a plain text editor, the colored symbols may not appear. When running the script, you will see colored indicators in your PowerShell console.
