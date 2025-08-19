@@ -4,6 +4,14 @@
 This PowerShell script helps customers validate their Azure environment meets the necessary prerequisites before onboarding to CrowdStrike's Falcon Cloud Security solution. It performs comprehensive checks across Azure subscriptions and tenant root management group.
 
 ## What it Checks
+
+### Tenant Root Level
+- **[Owner Status](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/privileged#owner)**: Verifies required owner permissions at tenant level
+- **[Global Administrator](https://learn.microsoft.com/en-us/azure/active-directory/roles/permissions-reference#global-administrator)**: Checks if the user has Global Administrator role
+- **[User Access Administrator](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/privileged#user-access-administrator)**: Verifies if the user has User Access Administrator role or elevated access
+- **[Policy Assignments](https://learn.microsoft.com/en-us/azure/governance/policy/overview)**: Identifies potential policy conflicts at tenant level
+
+### Subscription Level
 - **[Owner Status](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/privileged#owner)**: Verifies required owner permissions
 - **[Provider Registration](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/azure-services-resource-providers)**: Validates required Azure providers
   - Microsoft.Insights
@@ -11,10 +19,7 @@ This PowerShell script helps customers validate their Azure environment meets th
   - Microsoft.EventHub
   - Microsoft.PolicyInsights
 - **[Diagnostic Settings](https://learn.microsoft.com/en-us/azure/azure-monitor/fundamentals/service-limits#diagnostic-settings)**: Checks activity log export configuration (optimal: < 5 logs)
-- **[Policy Assignments](https://learn.microsoft.com/en-us/azure/governance/policy/overview)**: Identifies potential policy conflicts with:
-  - Tag requirements
-  - Location restrictions
-  - Resource type restrictions
+- **[Policy Assignments](https://learn.microsoft.com/en-us/azure/governance/policy/overview)**: Identifies potential policy conflicts
 
 ### Checked Policies
 - [Require a tag and its value on resources](https://www.azadvertizer.net/azpolicyadvertizer/1e30110a-5ceb-460c-a204-c1c3969c6d62.html)
@@ -27,14 +32,18 @@ This PowerShell script helps customers validate their Azure environment meets th
 
 ## Visual Indicators
 
-### 🟢 Ready for onboarding
+### ✓ Green checkmark - Ready for onboarding
 - Owner: True (required for onboarding)
+- Global Administrator: True (provides additional capabilities)
+- User Access Administrator: True (provides necessary permissions)
 - Provider: Registered (required for functionality)
 - Diagnostic Settings: Count < 5 (optimal configuration)
 - Policies: False (no conflicting policies)
 
-### 🔴 Needs attention
+### ✗ Red X - Needs attention
 - Owner: False (insufficient permissions)
+- Global Administrator: False (limited capabilities)
+- User Access Administrator: False (limited permissions)
 - Provider: Not Registered (missing requirements)
 - Diagnostic Settings: Count >= 5 (potential issues)
 - Policies: True (potential conflicts)
@@ -63,6 +72,22 @@ Note: Azure Cloud Shell comes with Azure PowerShell modules pre-installed, makin
 
 ## Output Example
 ```
+=== Checking Tenant Root Management Group ===
+Scope: /providers/Microsoft.Management/managementGroups/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+Owner Check:
+  ✓ Is Owner: True
+
+Global Administrator Check:
+  ✓ Is Global Administrator: True
+
+User Access Administrator Check:
+  ✓ Is User Access Administrator: True
+
+Policy Checks:
+    ✓ Require a tag and its value on resources: False
+    ✓ Allowed locations: False
+
 === Checking Subscription ===
 Scope: /subscriptions/xxxx-xxxx-xxxx-xxxx
 
@@ -83,10 +108,12 @@ Policy Checks:
     ✓ Allowed locations: False
 ```
 
-## Note
-This script is designed to help identify any potential blockers or configuration issues that need to be addressed before proceeding with Falcon Cloud Security onboarding. If you see any 🔴 indicators, please review the requirements documentation or contact CrowdStrike Support for assistance.
+## Troubleshooting
+- If you see "Is Global Administrator: False", you can manage Global Administrator roles at: https://portal.azure.com/#view/Microsoft_AAD_IAM/RolesManagementMenuBlade/~/AllRoles/adminUnitObjectId//resourceScope/%2F
+- If you see "Is User Access Administrator: False", you can enable this at: https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/Properties
 
-Note: The script will show colored checkmarks (✓) and X marks (✗) in your PowerShell console when running.
+## Note
+This script is designed to help identify any potential blockers or configuration issues that need to be addressed before proceeding with Falcon Cloud Security onboarding. If you see any ✗ indicators, please review the requirements documentation or contact CrowdStrike Support for assistance.
 
 ## Additional Resources
 - [Azure Resource Providers Documentation](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/azure-services-resource-providers)
@@ -94,3 +121,4 @@ Note: The script will show colored checkmarks (✓) and X marks (✗) in your Po
 - [Azure RBAC Documentation](https://learn.microsoft.com/en-us/azure/role-based-access-control/overview)
 - [Azure Diagnostic Settings Documentation](https://learn.microsoft.com/en-us/azure/azure-monitor/essentials/diagnostic-settings)
 - [Azure Cloud Shell Overview](https://learn.microsoft.com/en-us/azure/cloud-shell/overview)
+- [Azure AD Roles Documentation](https://learn.microsoft.com/en-us/azure/active-directory/roles/permissions-reference)

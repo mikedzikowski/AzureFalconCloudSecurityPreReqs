@@ -6,12 +6,16 @@ $xMark = [char]0x2717      # ✗
 Checkmark Logic:
 Green checkmark (✓) conditions:
 - Owner: True
+- Global Administrator: True
+- User Access Administrator: True
 - Provider: Registered
 - Diagnostic Settings: Count < 5
 - All Policies: False
 
 Red X (✗) conditions:
 - Owner: False
+- Global Administrator: False
+- User Access Administrator: False
 - Provider: Not Registered
 - Diagnostic Settings: Count >= 5
 - All Policies: True
@@ -29,6 +33,41 @@ $subscriptions = Get-AzSubscription
 # Get the tenant root management group
 $tenantDetails = Get-AzTenant
 $tenantRootId = "/providers/Microsoft.Management/managementGroups/$($tenantDetails.Id)"
+
+# Define policy information
+$policyIdsToCheck = @(
+    # Tags
+    @{
+        Id = "/providers/Microsoft.Authorization/policyDefinitions/1e30110a-5ceb-460c-a204-c1c3969c6d62"
+        Name = "Require a tag and its value on resources"
+    },
+    @{
+        Id = "/providers/Microsoft.Authorization/policyDefinitions/8ce3da23-7156-49e4-b145-24f95f9dcb46"
+        Name = "Require a tag and its value on resource groups"
+    },
+    @{
+        Id = "/providers/Microsoft.Authorization/policyDefinitions/871b6d14-10aa-478d-b590-94f262ecfa99"
+        Name = "Require a tag on resources"
+    },
+    @{
+        Id = "/providers/Microsoft.Authorization/policyDefinitions/96670d01-0a4d-4649-9c89-2d3abc0a5025"
+        Name = "Require a tag on resource groups"
+    },
+    # Location
+    @{
+        Id = "/providers/Microsoft.Authorization/policyDefinitions/e56962a6-4747-49cd-b67b-bf8b01975c4c"
+        Name = "Allowed locations"
+    },
+    @{
+        Id = "/providers/Microsoft.Authorization/policyDefinitions/e765b5de-1225-4ba3-bd56-1ac6695af988"
+        Name = "Allowed locations for resource groups"
+    },
+    # Resource Types
+    @{
+        Id = "/providers/Microsoft.Authorization/policyDefinitions/a08ec900-254a-4555-9bf5-e42af04b5c5c"
+        Name = "Allowed resource types"
+    }
+)
 
 # First check Tenant Root Management Group
 Write-Host "`n=== Checking Tenant Root Management Group ===" -ForegroundColor Cyan
@@ -49,29 +88,92 @@ if ($tenantOwnerAssignment) {
     Write-Host " Is Owner: False"
 }
 
+# Global Administrator Check
+Write-Host "`nGlobal Administrator Check:"
+$isGlobalAdmin = $false
+$globalAdminRoleName = "Global Administrator"  # The display name of the Global Admin role
+
+try {
+    # Get an access token for Microsoft Graph API, suppressing warnings
+    $token = (Get-AzAccessToken -ResourceUrl "https://graph.microsoft.com" -WarningAction SilentlyContinue).Token
+
+    # Set the request headers
+    $headers = @{
+        "Authorization" = "Bearer $token"
+    }
+
+    # Query Microsoft Graph API for user's directory roles
+    $uri = "https://graph.microsoft.com/v1.0/me/memberOf"
+    $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
+
+    # Check if the user is a member of the Global Administrator role
+    $globalAdminRole = $response.value | Where-Object { $_.displayName -eq $globalAdminRoleName }
+
+    if ($globalAdminRole) {
+        $isGlobalAdmin = $true
+        Write-Host "  " -NoNewline
+        Write-Host $checkMark -ForegroundColor Green -NoNewline
+        Write-Host " Is Global Administrator: True"
+    } else {
+        Write-Host "  " -NoNewline
+        Write-Host $xMark -ForegroundColor Red -NoNewline
+        Write-Host " Is Global Administrator: False"
+        Write-Host "      To manage Global Administrators, visit: https://portal.azure.com/#view/Microsoft_AAD_IAM/RolesManagementMenuBlade/~/AllRoles/adminUnitObjectId//resourceScope/%2F"
+    }
+} catch {
+    Write-Host "  " -NoNewline
+    Write-Host $xMark -ForegroundColor Red -NoNewline
+    Write-Host " Is Global Administrator: Error checking ($($_.Exception.Message))"
+    Write-Host "      To manage Global Administrators, visit: https://portal.azure.com/#view/Microsoft_AAD_IAM/RolesManagementMenuBlade/~/AllRoles/adminUnitObjectId//resourceScope/%2F"
+}
+
+# User Access Administrator Check
+Write-Host "`nUser Access Administrator Check:"
+try {
+    # Check if the user has User Access Administrator role at tenant root
+    $userAccessAdminRole = Get-AzRoleAssignment -Scope '/' -RoleDefinitionName 'User Access Administrator' -ObjectId $user.Id -ErrorAction SilentlyContinue
+    $hasUserAccessAdmin = $false
+    
+    if ($userAccessAdminRole) {
+        $hasUserAccessAdmin = $true
+        Write-Host "  " -NoNewline
+        Write-Host $checkMark -ForegroundColor Green -NoNewline
+        Write-Host " Is User Access Administrator: True"
+    } else {
+        # Alternative check: see if the user has elevated access
+        # This checks if the user has the role via Global Admin elevation
+        $elevatedAccess = Get-AzRoleAssignment -Scope '/' -RoleDefinitionName 'User Access Administrator' -SignInName $currentUser -ErrorAction SilentlyContinue
+        
+        if ($elevatedAccess) {
+            $hasUserAccessAdmin = $true
+            Write-Host "  " -NoNewline
+            Write-Host $checkMark -ForegroundColor Green -NoNewline
+            Write-Host " Is User Access Administrator: True (via elevated access)"
+        } else {
+            Write-Host "  " -NoNewline
+            Write-Host $xMark -ForegroundColor Red -NoNewline
+            Write-Host " Is User Access Administrator: False"
+            Write-Host "      To enable, visit: https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/Properties"
+        }
+    }
+} catch {
+    Write-Host "  " -NoNewline
+    Write-Host $xMark -ForegroundColor Red -NoNewline
+    Write-Host " Is User Access Administrator: Error checking ($($_.Exception.Message))"
+    Write-Host "      To enable, visit: https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/Properties"
+}
+
 # Policy Checks at Tenant Root
 Write-Host "`nPolicy Checks:"
-$policyIdsToCheck = @(
-    # Tags
-    "/providers/Microsoft.Authorization/policyDefinitions/1e30110a-5ceb-460c-a204-c1c3969c6d62", # Require a tag and its value on resources
-    "/providers/Microsoft.Authorization/policyDefinitions/8ce3da23-7156-49e4-b145-24f95f9dcb46", # Require a tag and its value on resource groups
-    "/providers/Microsoft.Authorization/policyDefinitions/871b6d14-10aa-478d-b590-94f262ecfa99", # Require a tag on resources
-    "/providers/Microsoft.Authorization/policyDefinitions/96670d01-0a4d-4649-9c89-2d3abc0a5025", # Require a tag on resource groups
-    # Location
-    "/providers/Microsoft.Authorization/policyDefinitions/e56962a6-4747-49cd-b67b-bf8b01975c4c", # Allowed locations
-    "/providers/Microsoft.Authorization/policyDefinitions/e765b5de-1225-4ba3-bd56-1ac6695af988", # Allowed locations for resource groups
-    # Resource Types
-    "/providers/Microsoft.Authorization/policyDefinitions/a08ec900-254a-4555-9bf5-e42af04b5c5c"  # Allowed resource types
-)
-
-foreach ($policyId in $policyIdsToCheck) {
+foreach ($policyInfo in $policyIdsToCheck) {
     try {
-        $policy = Get-AzPolicyDefinition -Id $policyId -ErrorAction Stop
+        $policy = Get-AzPolicyDefinition -Id $policyInfo.Id -ErrorAction Stop
         if ($policy) {
             $assignments = Get-AzPolicyAssignment -Scope $tenantRootId -ErrorAction SilentlyContinue
             $isPolicyEnabled = $false
+            
             foreach ($assignment in $assignments) {
-                if ($assignment.PolicyDefinitionId -eq $policyId) {
+                if ($assignment.PolicyDefinitionId -eq $policyInfo.Id) {
                     $isPolicyEnabled = $true
                     break
                 }
@@ -81,16 +183,16 @@ foreach ($policyId in $policyIdsToCheck) {
                 # Red X for any policy when True
                 Write-Host "    " -NoNewline
                 Write-Host $xMark -ForegroundColor Red -NoNewline
-                Write-Host " $($policy.DisplayName): True"
+                Write-Host " $($policyInfo.Name): True"
             } else {
                 # Green checkmark for any policy when False
                 Write-Host "    " -NoNewline
                 Write-Host $checkMark -ForegroundColor Green -NoNewline
-                Write-Host " $($policy.DisplayName): False"
+                Write-Host " $($policyInfo.Name): False"
             }
         }
     } catch {
-        Write-Host "Error checking policy definition $policyId`: $($_.Exception.Message)"
+        Write-Host "Error checking policy definition $($policyInfo.Id)`: $($_.Exception.Message)"
     }
 }
 
@@ -162,33 +264,34 @@ foreach ($subscription in $subscriptions) {
 
     # Policy Checks
     Write-Host "`nPolicy Checks:"
-    foreach ($policyId in $policyIdsToCheck) {
+    foreach ($policyInfo in $policyIdsToCheck) {
         try {
-            $policy = Get-AzPolicyDefinition -Id $policyId -ErrorAction Stop
+            $policy = Get-AzPolicyDefinition -Id $policyInfo.Id -ErrorAction Stop
             if ($policy) {
                 $assignments = Get-AzPolicyAssignment -Scope "/subscriptions/$($subscription.Id)" -ErrorAction SilentlyContinue
                 $isPolicyEnabled = $false
+                
                 foreach ($assignment in $assignments) {
-                    if ($assignment.PolicyDefinitionId -eq $policyId) {
+                    if ($assignment.PolicyDefinitionId -eq $policyInfo.Id) {
                         $isPolicyEnabled = $true
                         break
                     }
                 }
-
+                
                 if ($isPolicyEnabled) {
                     # Red X for any policy when True
                     Write-Host "    " -NoNewline
                     Write-Host $xMark -ForegroundColor Red -NoNewline
-                    Write-Host " $($policy.DisplayName): True"
+                    Write-Host " $($policyInfo.Name): True"
                 } else {
                     # Green checkmark for any policy when False
                     Write-Host "    " -NoNewline
                     Write-Host $checkMark -ForegroundColor Green -NoNewline
-                    Write-Host " $($policy.DisplayName): False"
+                    Write-Host " $($policyInfo.Name): False"
                 }
             }
         } catch {
-            Write-Host "Error checking policy definition $policyId`: $($_.Exception.Message)"
+            Write-Host "Error checking policy definition $($policyInfo.Id)`: $($_.Exception.Message)"
         }
     }
 }
