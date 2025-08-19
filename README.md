@@ -55,7 +55,7 @@ This PowerShell script helps customers validate their Azure environment meets th
 ### Azure Cloud Shell
 ```powershell
 # Run in Azure Cloud Shell (PowerShell)
-curl -o Get-PreReqs.ps1 https://raw.githubusercontent.com/your-repo/Get-PreReqs.ps1
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/mikedzikowski/AzureFalconCloudSecurityPreReqs/main/Get-PreReqs.ps1" -OutFile "Get-PreReqs.ps1"
 ./Get-PreReqs.ps1
 ```
 
