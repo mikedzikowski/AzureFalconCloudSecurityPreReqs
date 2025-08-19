@@ -41,12 +41,10 @@ $isOwner = $false
 if ($roleAssignments) {
     $isOwner = $roleAssignments | Where-Object { $_.RoleDefinitionName -eq "Owner" } | Select-Object -First 1
     if ($isOwner) {
-        # Green checkmark for Owner: True (desired state)
         Write-Host "  " -NoNewline
         Write-Host $checkMark -ForegroundColor Green -NoNewline
         Write-Host " Is Owner: True"
     } else {
-        # Red X for Owner: False (undesired state)
         Write-Host "  " -NoNewline
         Write-Host $xMark -ForegroundColor Red -NoNewline
         Write-Host " Is Owner: False"
@@ -111,6 +109,8 @@ foreach ($subscription in $subscriptions) {
     $requiredProviders = @(
         "Microsoft.Insights"
         "Microsoft.Management"
+        "Microsoft.EventHub"
+        "Microsoft.PolicyInsights"
     )
 
     foreach ($provider in $requiredProviders) {
@@ -136,12 +136,10 @@ foreach ($subscription in $subscriptions) {
     if ($roleAssignments) {
         $isOwner = $roleAssignments | Where-Object { $_.RoleDefinitionName -eq "Owner" } | Select-Object -First 1
         if ($isOwner) {
-            # Green checkmark for Owner: True
             Write-Host "  " -NoNewline
             Write-Host $checkMark -ForegroundColor Green -NoNewline
             Write-Host " Is Owner: True"
         } else {
-            # Red X for Owner: False
             Write-Host "  " -NoNewline
             Write-Host $xMark -ForegroundColor Red -NoNewline
             Write-Host " Is Owner: False"
