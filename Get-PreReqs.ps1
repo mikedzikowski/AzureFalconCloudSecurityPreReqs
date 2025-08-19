@@ -21,8 +21,24 @@ Red X (✗) conditions:
 - All Policies: True
 #>
 
+# Detect if running in Cloud Shell - more reliable method
+$isCloudShell = $false
+if ($env:ACC_CLOUD -eq "AzureCloud" -or $env:AZUREPS_HOST_ENVIRONMENT -or (Test-Path -Path "/home/*/clouddrive")) {
+    $isCloudShell = $true
+    Write-Host "Running in Azure Cloud Shell environment" -ForegroundColor Yellow
+}
+
 # Suppress the output and warnings from Connect-AzAccount
-Connect-AzAccount -WarningAction SilentlyContinue | Out-Null
+try {
+    # Check if already connected
+    $context = Get-AzContext -ErrorAction SilentlyContinue
+    if (-not $context) {
+        Connect-AzAccount -WarningAction SilentlyContinue | Out-Null
+    }
+} catch {
+    Write-Host "Error connecting to Azure: $($_.Exception.Message)" -ForegroundColor Red
+    exit
+}
 
 # Get the current user context
 $currentUser = (Get-AzContext).Account.Id
@@ -73,94 +89,125 @@ $policyIdsToCheck = @(
 Write-Host "`n=== Checking Tenant Root Management Group ===" -ForegroundColor Cyan
 Write-Host "Scope: $tenantRootId"
 
-# Owner Check at Tenant Root
+# Owner Check at Tenant Root - Skip in Cloud Shell
 Write-Host "`nOwner Check:"
-$user = Get-AzAdUser -SignedIn
-$tenantOwnerAssignment = Get-AzRoleAssignment -Scope '/' -RoleDefinitionName 'Owner' -ObjectId $user.Id -ErrorAction SilentlyContinue
-
-if ($tenantOwnerAssignment) {
+if ($isCloudShell) {
     Write-Host "  " -NoNewline
-    Write-Host $checkMark -ForegroundColor Green -NoNewline
-    Write-Host " Is Owner: True"
+    Write-Host "?" -ForegroundColor Yellow -NoNewline
+    Write-Host " Owner status at tenant root cannot be determined in Cloud Shell"
+    Write-Host "      To verify, please check in Azure Portal: https://portal.azure.com/#view/Microsoft_Azure_ManagementGroups/ManagementGroupBrowseBlade"
 } else {
-    Write-Host "  " -NoNewline
-    Write-Host $xMark -ForegroundColor Red -NoNewline
-    Write-Host " Is Owner: False"
+    # Regular check for non-Cloud Shell environments
+    $tenantOwnerAssignment = Get-AzRoleAssignment -Scope '/' -RoleDefinitionName 'Owner' -SignInName $currentUser -ErrorAction SilentlyContinue
+    if ($tenantOwnerAssignment) {
+        Write-Host "  " -NoNewline
+        Write-Host $checkMark -ForegroundColor Green -NoNewline
+        Write-Host " Is Owner: True"
+    } else {
+        Write-Host "  " -NoNewline
+        Write-Host $xMark -ForegroundColor Red -NoNewline
+        Write-Host " Is Owner: False"
+    }
 }
 
 # Global Administrator Check
 Write-Host "`nGlobal Administrator Check:"
-$isGlobalAdmin = $false
-$globalAdminRoleName = "Global Administrator"  # The display name of the Global Admin role
-
-try {
-    # Get an access token for Microsoft Graph API, suppressing warnings
-    $token = (Get-AzAccessToken -ResourceUrl "https://graph.microsoft.com" -WarningAction SilentlyContinue).Token
-
-    # Set the request headers
-    $headers = @{
-        "Authorization" = "Bearer $token"
+if ($isCloudShell) {
+    # In Cloud Shell, we'll use a different approach that doesn't rely on Graph API
+    Write-Host "  " -NoNewline
+    Write-Host "?" -ForegroundColor Yellow -NoNewline
+    Write-Host " Global Administrator status cannot be reliably determined in Cloud Shell"
+    Write-Host "      To verify, please check in Azure Portal: https://portal.azure.com/#view/Microsoft_AAD_IAM/RolesManagementMenuBlade/~/AllRoles/adminUnitObjectId//resourceScope/%2F"
+    
+    # Optional: Try to use Az CLI as an alternative method
+    try {
+        # Check if Az CLI is available
+        $azCliVersion = az --version 2>$null
+        if ($azCliVersion) {
+            Write-Host "      Attempting alternative check using Az CLI..."
+            # Try to get directory roles using Az CLI
+            $azAccount = az account show | ConvertFrom-Json
+            if ($azAccount) {
+                $userPrincipalName = $azAccount.user.name
+                Write-Host "      Logged in as: $userPrincipalName"
+                
+                # This is just informational - we can't reliably check Global Admin status in Cloud Shell
+                Write-Host "      Note: For security reasons, Global Administrator status can only be verified in the Azure Portal"
+            }
+        }
+    } catch {
+        # Silently continue if Az CLI check fails
     }
+} else {
+    # Regular check for non-Cloud Shell environments
+    $isGlobalAdmin = $false
+    $globalAdminRoleName = "Global Administrator"  # The display name of the Global Admin role
 
-    # Query Microsoft Graph API for user's directory roles
-    $uri = "https://graph.microsoft.com/v1.0/me/memberOf"
-    $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
+    try {
+        # Get an access token for Microsoft Graph API, suppressing warnings
+        $token = (Get-AzAccessToken -ResourceUrl "https://graph.microsoft.com" -WarningAction SilentlyContinue).Token
 
-    # Check if the user is a member of the Global Administrator role
-    $globalAdminRole = $response.value | Where-Object { $_.displayName -eq $globalAdminRoleName }
+        # Set the request headers
+        $headers = @{
+            "Authorization" = "Bearer $token"
+        }
 
-    if ($globalAdminRole) {
-        $isGlobalAdmin = $true
-        Write-Host "  " -NoNewline
-        Write-Host $checkMark -ForegroundColor Green -NoNewline
-        Write-Host " Is Global Administrator: True"
-    } else {
+        # Query Microsoft Graph API for user's directory roles
+        $uri = "https://graph.microsoft.com/v1.0/me/memberOf"
+        $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
+
+        # Check if the user is a member of the Global Administrator role
+        $globalAdminRole = $response.value | Where-Object { $_.displayName -eq $globalAdminRoleName }
+
+        if ($globalAdminRole) {
+            $isGlobalAdmin = $true
+            Write-Host "  " -NoNewline
+            Write-Host $checkMark -ForegroundColor Green -NoNewline
+            Write-Host " Is Global Administrator: True"
+        } else {
+            Write-Host "  " -NoNewline
+            Write-Host $xMark -ForegroundColor Red -NoNewline
+            Write-Host " Is Global Administrator: False"
+            Write-Host "      To manage Global Administrators, visit: https://portal.azure.com/#view/Microsoft_AAD_IAM/RolesManagementMenuBlade/~/AllRoles/adminUnitObjectId//resourceScope/%2F"
+        }
+    } catch {
         Write-Host "  " -NoNewline
         Write-Host $xMark -ForegroundColor Red -NoNewline
-        Write-Host " Is Global Administrator: False"
+        Write-Host " Is Global Administrator: Error checking ($($_.Exception.Message))"
         Write-Host "      To manage Global Administrators, visit: https://portal.azure.com/#view/Microsoft_AAD_IAM/RolesManagementMenuBlade/~/AllRoles/adminUnitObjectId//resourceScope/%2F"
     }
-} catch {
-    Write-Host "  " -NoNewline
-    Write-Host $xMark -ForegroundColor Red -NoNewline
-    Write-Host " Is Global Administrator: Error checking ($($_.Exception.Message))"
-    Write-Host "      To manage Global Administrators, visit: https://portal.azure.com/#view/Microsoft_AAD_IAM/RolesManagementMenuBlade/~/AllRoles/adminUnitObjectId//resourceScope/%2F"
 }
 
-# User Access Administrator Check
+# User Access Administrator Check - Skip in Cloud Shell
 Write-Host "`nUser Access Administrator Check:"
-try {
-    # Check if the user has User Access Administrator role at tenant root
-    $userAccessAdminRole = Get-AzRoleAssignment -Scope '/' -RoleDefinitionName 'User Access Administrator' -ObjectId $user.Id -ErrorAction SilentlyContinue
-    $hasUserAccessAdmin = $false
-    
-    if ($userAccessAdminRole) {
-        $hasUserAccessAdmin = $true
-        Write-Host "  " -NoNewline
-        Write-Host $checkMark -ForegroundColor Green -NoNewline
-        Write-Host " Is User Access Administrator: True"
-    } else {
-        # Alternative check: see if the user has elevated access
-        # This checks if the user has the role via Global Admin elevation
-        $elevatedAccess = Get-AzRoleAssignment -Scope '/' -RoleDefinitionName 'User Access Administrator' -SignInName $currentUser -ErrorAction SilentlyContinue
+if ($isCloudShell) {
+    Write-Host "  " -NoNewline
+    Write-Host "?" -ForegroundColor Yellow -NoNewline
+    Write-Host " User Access Administrator status cannot be determined in Cloud Shell"
+    Write-Host "      To verify, please check in Azure Portal: https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/Properties"
+} else {
+    try {
+        # Check if the user has User Access Administrator role at tenant root
+        $userAccessAdminRole = Get-AzRoleAssignment -Scope '/' -RoleDefinitionName 'User Access Administrator' -SignInName $currentUser -ErrorAction SilentlyContinue
+        $hasUserAccessAdmin = $false
         
-        if ($elevatedAccess) {
+        if ($userAccessAdminRole) {
             $hasUserAccessAdmin = $true
             Write-Host "  " -NoNewline
             Write-Host $checkMark -ForegroundColor Green -NoNewline
-            Write-Host " Is User Access Administrator: True (via elevated access)"
+            Write-Host " Is User Access Administrator: True"
         } else {
             Write-Host "  " -NoNewline
             Write-Host $xMark -ForegroundColor Red -NoNewline
             Write-Host " Is User Access Administrator: False"
             Write-Host "      To enable, visit: https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/Properties"
         }
+    } catch {
+        Write-Host "  " -NoNewline
+        Write-Host $xMark -ForegroundColor Red -NoNewline
+        Write-Host " Is User Access Administrator: Error checking ($($_.Exception.Message))"
+        Write-Host "      To enable, visit: https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/Properties"
     }
-} catch {
-    Write-Host "  " -NoNewline
-    Write-Host $xMark -ForegroundColor Red -NoNewline
-    Write-Host " Is User Access Administrator: Error checking ($($_.Exception.Message))"
-    Write-Host "      To enable, visit: https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/Properties"
 }
 
 # Policy Checks at Tenant Root
@@ -228,17 +275,29 @@ foreach ($subscription in $subscriptions) {
         }
     }
 
-    # Owner Check
+    # Owner Check - Skip in Cloud Shell
     Write-Host "`nOwner Check:"
-    $roleAssignments = Get-AzRoleAssignment -SignInName $currentUser -Scope "/subscriptions/$($subscription.Id)" -ErrorAction SilentlyContinue
-    $isOwner = $false
+    if ($isCloudShell) {
+        Write-Host "  " -NoNewline
+        Write-Host "?" -ForegroundColor Yellow -NoNewline
+        Write-Host " Owner status cannot be determined in Cloud Shell"
+        Write-Host "      To verify, please check in Azure Portal: https://portal.azure.com/#view/Microsoft_Azure_Billing/SubscriptionsBlade"
+    } else {
+        # Regular check for non-Cloud Shell environments
+        $roleAssignments = Get-AzRoleAssignment -SignInName $currentUser -Scope "/subscriptions/$($subscription.Id)" -ErrorAction SilentlyContinue
+        $isOwner = $false
 
-    if ($roleAssignments) {
-        $isOwner = $roleAssignments | Where-Object { $_.RoleDefinitionName -eq "Owner" } | Select-Object -First 1
-        if ($isOwner) {
-            Write-Host "  " -NoNewline
-            Write-Host $checkMark -ForegroundColor Green -NoNewline
-            Write-Host " Is Owner: True"
+        if ($roleAssignments) {
+            $isOwner = $roleAssignments | Where-Object { $_.RoleDefinitionName -eq "Owner" } | Select-Object -First 1
+            if ($isOwner) {
+                Write-Host "  " -NoNewline
+                Write-Host $checkMark -ForegroundColor Green -NoNewline
+                Write-Host " Is Owner: True"
+            } else {
+                Write-Host "  " -NoNewline
+                Write-Host $xMark -ForegroundColor Red -NoNewline
+                Write-Host " Is Owner: False"
+            }
         } else {
             Write-Host "  " -NoNewline
             Write-Host $xMark -ForegroundColor Red -NoNewline
