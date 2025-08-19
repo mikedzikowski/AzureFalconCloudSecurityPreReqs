@@ -40,15 +40,26 @@ This PowerShell script helps customers validate their Azure environment meets th
 - Policies: True (potential conflicts)
 
 ## Prerequisites
-- Azure PowerShell module installed
+- Azure PowerShell module installed (for local execution)
 - Sufficient permissions to read configurations
 - Active Azure subscription
 
 ## Usage
+
+### Local Execution
 ```powershell
-# Run the script
-.\Get-PreReqs.ps1
+# Run the script locally
+./Get-PreReqs.ps1
 ```
+
+### Azure Cloud Shell
+```powershell
+# Run in Azure Cloud Shell (PowerShell)
+curl -o Get-PreReqs.ps1 https://raw.githubusercontent.com/your-repo/Get-PreReqs.ps1
+./Get-PreReqs.ps1
+```
+
+Note: Azure Cloud Shell comes with Azure PowerShell modules pre-installed, making it an ideal option for quick checks without local setup.
 
 ## Output Example
 ```
@@ -82,3 +93,4 @@ Note: The script will show colored checkmarks (✓) and X marks (✗) in your Po
 - [Azure Policy Documentation](https://learn.microsoft.com/en-us/azure/governance/policy/)
 - [Azure RBAC Documentation](https://learn.microsoft.com/en-us/azure/role-based-access-control/overview)
 - [Azure Diagnostic Settings Documentation](https://learn.microsoft.com/en-us/azure/azure-monitor/essentials/diagnostic-settings)
+- [Azure Cloud Shell Overview](https://learn.microsoft.com/en-us/azure/cloud-shell/overview)
