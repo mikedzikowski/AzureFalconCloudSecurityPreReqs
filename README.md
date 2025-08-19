@@ -32,7 +32,7 @@ This PowerShell script helps customers validate their Azure environment meets th
 
 ## Visual Indicators
 
-### ✓ Green checkmark - Ready for onboarding
+### 🟢 Ready for onboarding
 - Owner: True (required for onboarding)
 - Global Administrator: True (provides additional capabilities)
 - User Access Administrator: True (provides necessary permissions)
@@ -40,7 +40,7 @@ This PowerShell script helps customers validate their Azure environment meets th
 - Diagnostic Settings: Count < 5 (optimal configuration)
 - Policies: False (no conflicting policies)
 
-### ✗ Red X - Needs attention
+### 🔴 Needs attention
 - Owner: False (insufficient permissions)
 - Global Administrator: False (limited capabilities)
 - User Access Administrator: False (limited permissions)
@@ -114,7 +114,7 @@ Policy Checks:
 - If you see "Activity Logs Exported: 5" or higher, you can manage Activity Log settings at: https://portal.azure.com/#view/Microsoft_Azure_Monitoring/DiagnosticsLogsBlade/
 
 ## Note
-This script is designed to help identify any potential blockers or configuration issues that need to be addressed before proceeding with Falcon Cloud Security onboarding. If you see any ✗ indicators, please review the requirements documentation or contact CrowdStrike Support for assistance.
+This script is designed to help identify any potential blockers or configuration issues that need to be addressed before proceeding with Falcon Cloud Security onboarding. If you see any 🔴 indicators, please review the requirements documentation or contact CrowdStrike Support for assistance.
 
 ## Additional Resources
 - [Azure Resource Providers Documentation](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/azure-services-resource-providers)
