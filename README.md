@@ -111,6 +111,7 @@ Policy Checks:
 ## Troubleshooting
 - If you see "Is Global Administrator: False", you can manage Global Administrator roles at: https://portal.azure.com/#view/Microsoft_AAD_IAM/RolesManagementMenuBlade/~/AllRoles/adminUnitObjectId//resourceScope/%2F
 - If you see "Is User Access Administrator: False", you can enable this at: https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/Properties
+- If you see "Activity Logs Exported: 5" or higher, you can manage Activity Log settings at: https://portal.azure.com/#view/Microsoft_Azure_Monitoring/DiagnosticsLogsBlade/
 
 ## Note
 This script is designed to help identify any potential blockers or configuration issues that need to be addressed before proceeding with Falcon Cloud Security onboarding. If you see any ✗ indicators, please review the requirements documentation or contact CrowdStrike Support for assistance.
