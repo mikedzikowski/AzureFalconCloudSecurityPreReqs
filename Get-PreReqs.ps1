@@ -319,6 +319,8 @@ foreach ($subscription in $subscriptions) {
         Write-Host "  " -NoNewline
         Write-Host $xMark -ForegroundColor Red -NoNewline
         Write-Host " Activity Logs Exported: $($logCount)"
+        # Add link to Azure portal for exporting activity logs
+        Write-Host "      To manage Activity Log settings, visit: https://portal.azure.com/#view/Microsoft_Azure_Monitoring/DiagnosticsLogsBlade/queryInputs~/%7B%22subscriptionId%22%3A%22%2Fsubscriptions%2F$($subscription.Id)%22%7D"
     }
 
     # Policy Checks
