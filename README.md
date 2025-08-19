@@ -8,6 +8,8 @@ This PowerShell script helps customers validate their Azure environment meets th
 - **[Provider Registration](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/azure-services-resource-providers)**: Validates required Azure providers
   - Microsoft.Insights
   - Microsoft.Management
+  - Microsoft.EventHub
+  - Microsoft.PolicyInsights
 - **[Diagnostic Settings](https://learn.microsoft.com/en-us/azure/azure-monitor/fundamentals/service-limits#diagnostic-settings)**: Checks activity log export configuration (optimal: < 5 logs)
 - **[Policy Assignments](https://learn.microsoft.com/en-us/azure/governance/policy/overview)**: Identifies potential policy conflicts with:
   - Tag requirements
@@ -56,6 +58,8 @@ Scope: /subscriptions/xxxx-xxxx-xxxx-xxxx
 Provider Checks:
   ✓ Provider Microsoft.Insights is registered
   ✓ Provider Microsoft.Management is registered
+  ✓ Provider Microsoft.EventHub is registered
+  ✓ Provider Microsoft.PolicyInsights is registered
 
 Owner Check:
   ✓ Is Owner: True
@@ -72,3 +76,9 @@ Policy Checks:
 This script is designed to help identify any potential blockers or configuration issues that need to be addressed before proceeding with Falcon Cloud Security onboarding. If you see any 🔴 indicators, please review the requirements documentation or contact CrowdStrike Support for assistance.
 
 Note: The script will show colored checkmarks (✓) and X marks (✗) in your PowerShell console when running.
+
+## Additional Resources
+- [Azure Resource Providers Documentation](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/azure-services-resource-providers)
+- [Azure Policy Documentation](https://learn.microsoft.com/en-us/azure/governance/policy/)
+- [Azure RBAC Documentation](https://learn.microsoft.com/en-us/azure/role-based-access-control/overview)
+- [Azure Diagnostic Settings Documentation](https://learn.microsoft.com/en-us/azure/azure-monitor/essentials/diagnostic-settings)
