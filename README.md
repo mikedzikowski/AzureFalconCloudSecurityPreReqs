@@ -4,15 +4,24 @@
 This PowerShell script helps customers validate their Azure environment meets the necessary prerequisites before onboarding to CrowdStrike's Falcon Cloud Security solution. It performs comprehensive checks across Azure subscriptions and tenant root management group.
 
 ## What it Checks
-- **Owner Status**: Verifies required owner permissions
-- **Provider Registration**: Validates required Azure providers
+- **[Owner Status](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/privileged#owner)**: Verifies required owner permissions
+- **[Provider Registration](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/azure-services-resource-providers)**: Validates required Azure providers
   - Microsoft.Insights
   - Microsoft.Management
-- **Diagnostic Settings**: Checks activity log export configuration (optimal: < 5 logs)
-- **Policy Assignments**: Identifies potential policy conflicts with:
+- **[Diagnostic Settings](https://learn.microsoft.com/en-us/azure/azure-monitor/fundamentals/service-limits#diagnostic-settings)**: Checks activity log export configuration (optimal: < 5 logs)
+- **[Policy Assignments](https://learn.microsoft.com/en-us/azure/governance/policy/overview)**: Identifies potential policy conflicts with:
   - Tag requirements
   - Location restrictions
   - Resource type restrictions
+
+### Checked Policies
+- [Require a tag and its value on resources](https://www.azadvertizer.net/azpolicyadvertizer/1e30110a-5ceb-460c-a204-c1c3969c6d62.html)
+- [Require a tag and its value on resource groups](https://www.azadvertizer.net/azpolicyadvertizer/8ce3da23-7156-49e4-b145-24f95f9dcb46.html)
+- [Require a tag on resources](https://www.azadvertizer.net/azpolicyadvertizer/871b6d14-10aa-478d-b590-94f262ecfa99.html)
+- [Require a tag on resource groups](https://www.azadvertizer.net/azpolicyadvertizer/96670d01-0a4d-4649-9c89-2d3abc0a5025.html)
+- [Allowed locations](https://www.azadvertizer.net/azpolicyadvertizer/e56962a6-4747-49cd-b67b-bf8b01975c4c.html)
+- [Allowed locations for resource groups](https://www.azadvertizer.net/azpolicyadvertizer/e765b5de-1225-4ba3-bd56-1ac6695af988.html)
+- [Allowed resource types](https://www.azadvertizer.net/azpolicyadvertizer/a08ec900-254a-4555-9bf5-e42af04b5c5c.html)
 
 ## Visual Indicators
 
